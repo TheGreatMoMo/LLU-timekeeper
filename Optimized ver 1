@@ -1,0 +1,92 @@
+#include <IE.au3>
+#include <msgboxconstants.au3>
+#include <array.au3>
+#include <string.au3>
+;~ ====================================================================================
+;~ ~~~~~~~~~~~~~ToDO: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+;~ 1. Create a script to navigate to Timecard site [x]
+;~ 2. find a way to isolate the frame [x]
+;~ 3. find a way to isolate the current week link button ex 2018-05-13 [x]
+;~ 4. click the New task button on the next page [x]
+;~ 5. Select Break/Fix from the next page and click submit [x]
+;~ 6. Get the variables for Sun - Sat Sum Variables at the bottom of the page []
+;~ 7. Create a logic script that makes var = 8 - sum of daily hrs []
+;~ 8. Find a way to set the value for the New task line with the results of Var from step 7 []
+;~ 9. Create GUI with check boxes that let you reconcile the hours for each day checkd with results =8hrs
+;~ 10. Present the tool to managers
+;~ 90000. create a larger GUI that incorporates the above script and gives functionality for both Service Now time and API quick punches with 2 links in white text box for quick links like cisco api and sn timecard with AD tool link
+
+
+Global $otime = _IECreate ("https://websiteURL")
+_IELoadWait($otime)
+Local $oFrameobj = _IEFrameGetObjByName($otime, "gsft_main")
+Local $oLinks = _IETagNameGetCollection($oFrameobj, "a")
+For $oLink In $oLinks
+    If $oLink.ClassName	 = "linked formlink" Then
+        _IEAction($oLink, "click")
+        ExitLoop
+    EndIf
+Next
+;~ ==========Get Daily values before proceeding below==========
+_IEloadWait($oFrameobj)
+;~ Local $oSpanM = _IETagNameGetCollection($oFrameobj, "span")
+Local $oMonHrsTD = _IETagNameGetCollection($oFrameobj, "td")
+;~ Local $oMonHrs = _IETagNameGetCollection($oFrameobj, "td")
+ConsoleWrite ("===Showing TD Objects===" & @crlf)
+For $oMonSum In $oMonHrsTD
+	If String ($oMonSum.OuterHTML) Then
+		ConsoleWrite ($oMonSum.OuterHTML &@CRLF)
+;~ 		$oSUM = _IEGetObjByName($oFrameobj, $oMonSum.Innertext.value)
+;~ 				MsgBox(0,"Monday SUM value ", $oMonSum.InnerText & @CRLF)
+		ExitLoop
+	Endif
+Next
+ConsoleWrite ("===END TD Objects===" & @crlf)
+
+;~ For $tdValues In $oTd
+;~ 	If String ($tdValues.innertext) = "8" Then ;"<span class=""aggregate_value"" aggregate_display=""8"" aggregate_field=""monday"" aggregate_value=""8.00"" aggregate_type=""SUM"">8</span>" Then
+;~ 	ConsoleWrite ("found"&@CRLF) ; you can also try $tdValues.outerhtml
+;~ 	;ConsoleWrite ($tdValues.outerhtml & @crlf) ; you can also try $tdValues.outerhtml
+;~ 	;ConsoleWrite ($tdValues.ClassName = _StringBetween($tdValues.Classname, "Span Class=", "</") & @CRLF)
+;~ EndIf
+;~ Next
+
+;~ local $oNewBtn = _IEGetObjById($oFrameobj, "sysverb_new")
+;~ _IEAction($oNewBtn, "click") ;Clicks New on Time_Card week view window to create a new task below.
+;~ _IELoadWait($oFrameobj)
+;~ Local $oTaskSel = _IEGetObjByName ($oFrameobj, "time_card.category") ; Narrowing down Objects from IE window by creating a Variable "$oTaskSel" to use when searching Objects inside iFrame Object "$oFrameobj" for properties of object named "time_card.category"
+;~ ControlSend("Main - Internet Explorer","","","e")
+;~ _IEFormElementOptionSelect($oTaskSel,"Break/Fix: Incident Standby",1,"byText") ; OBJECT Selection command for  "Break/Fix: Incident Standby"
+;~ _IEAction($oTaskSel, "focus")
+;~ _IEAction($oTaskSel, "click")
+;~ Sleep(300)
+;~ Local $oSubmitTask = _IEGetObjById ($oFrameobj, "sysverb_insert") ; OBJECT = "Submit" button bottom of Task Category Select page
+;~ _IEAction($oSubmitTask, "click")   Not Ready to test this yet, still need to get a list of variables for  Sun-Sat sum values AND then ready to create new field to test.
+;~ =========Create a function for each day then add it to GUI=============
+;~ Call ("rThurs")
+;~ Func rThurs()
+;~ 	Local $oFrameobj = _IEFrameGetObjByName($otime, "gsft_main")
+;~ 	Local $oThurHrs = _IETagNameGetCollection($oFrameobj, "SPAN")
+;~ 	For $oThurHr In $oThurHrs
+;~ 		If $oThurHr.ClassName  = "aggregate_value" & $oThurHr.InnerHTML = "4" Then
+;~ 			ConsoleWrite( $oThurHr )
+;~ 			_IEAction($oLink, "click")
+;~ 			ExitLoop
+;~ 		EndIf
+;~ 	Next
+;~ EndFunc
+
+;~ =========Also try this===========
+_IELoadWait($oFrameobj)
+Local $oFrameobj = _IEFrameGetObjByName($otime, "gsft_main")
+Local $oMonHrs = _IETagNameGetCollection($oFrameobj, "SPAN")
+	For $oMonHr In $oMonHrs
+ 		If $oMonHr.ClassName = "aggregate_value" Then ; & $oMonHr.Title = "Monday" Then ;using "1.1" to test a specific object InnerHTML value then will change to and add "aggregate_field"
+        	If $oMonHr.innertext >= "8" Then
+			Local $oMonAdjHr = (8 - $oMonHR.Innertext)
+ 			ConsoleWrite( $oMonHrs &@CRLF )
+			MsgBox (0, "Adjusted Value", $oMonAdjHr)
+			ExitLoop
+			EndIf
+ 		EndIf
+ 	Next
