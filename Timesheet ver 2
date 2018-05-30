@@ -1,0 +1,157 @@
+#include <IE.au3>
+#include <msgboxconstants.au3>
+#include <array.au3>
+#include <string.au3>
+;~ ====================================================================================
+;~ ~~~~~~~~~~~~~ToDO: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+;~ 1. Create a script to navigate to Timecard site [x]
+;~ 2. find a way to isolate the frame [x]
+;~ 3. find a way to isolate the current week link button ex 2018-05-13 [x]
+;~ 4. click the New task button on the next page [x]
+;~ 5. Select Break/Fix from the next page and click submit [x]
+;~ 6. Get the variables for Sun - Sat Sum Variables at the bottom of the page [] <---- I am Stuck cannot associate specific string output to each day of the week
+;~ 7. Create a logic script that makes var = 8 - sum of daily hrs []
+;~ 8. Find a way to set the value for the New task line with the results of Var from step 7 []
+;~ 9. Create GUI with check boxes that let you reconcile the hours for each day checkd with results
+
+;~ ==============
+Global $otime = _IECreate ("https://WebsiteURL.com")
+_IELoadWait($otime)
+$txt = ""
+Global $oFrameobj = _IEFrameGetObjByName($otime, "gsft_main")  ; IFrame where timecard table is located
+
+Local $oLinks = _IETagNameGetCollection($oFrameobj, "a")  ;Click to get into IFrame without invoking Cross site protections
+For $oLink In $oLinks
+    If $oLink.ClassName  = "linked formlink" Then
+        _IEAction($oLink, "click")
+         ExitLoop
+    EndIf
+Next
+_IELoadWait($oFrameobj, 3000)
+
+Local $oFrameobj = _IEFrameGetObjByName($otime, "gsft_main") ;This Line allows me to select the correct frame and get collection for the correct obj ID
+;~ _IEbodywriteHTML($oFrameobj, "Hello iFrame!!")
+_IEloadwait($oFrameobj)
+Local $oTd = _IETagNameGetCollection($oFrameobj, "span") ; searches iframe for all TD objects - I was able to locate my object in both Span and TD
+
+;~ For $spanValues In $oSpan
+;~ If IsObj ($spanValues) Then
+;~  If $spanValues.outerhtml Then
+;~      $oAV = _StringBetween($Values.outerhtml, ">", "<")
+;~      ConsoleWrite ($aTableData & @crlf & @extended) ; you can also try $spanValues.outerhtml
+;~  EndIf
+;~ EndIf
+;~ Next
+
+;~ ConsoleWrite ("===END SPAN Objects===" & @crlf)
+
+
+;~ ================== _IEQuerySelectAll is AWESOME!  Set $oDoc to point to IFrame DocObj===========
+If Not @error Then
+    $oDoc = _IEDocGetObj($oFrameobj)
+;~  $oElements = _IEquerySelectorAll($oDoc, ".aggregate_value")
+;~  If ISobj($oElements) Then
+;~      MsgBox (0, "Agg value", $oElements)
+;~  EndIf
+    $oElements = _IEquerySelectorAll($oDoc, "span.aggregate_value")   ; Identify all Span elements with the aggregate_value for all incidents created  for each day of the week
+    If IsObj($oElements) Then
+        For $iElement_idx = 1 To $oElements.length
+            ConsoleWrite($oElements.item($iElement_idx).innertext & @LF)  ;writes to console all timecard aggregave values in table example Sum 1.5 for monday column
+        Next
+    EndIf
+    _IELoadWait($oFrameobj, 300)
+    $oDoc = _IEDocGetObj($oFrameobj)
+    $oDElements = _IEquerySelectorAll($oDoc, "span.aggregate_value")  ;Gets the full Span OuterHTML Object Details for each column <Span: Class= Aggregate_value =""</Span>
+    If IsObj($oDElements) Then
+        For $iElement_idx = 1 To $oDElements.length
+            ConsoleWrite($oDElements.item($iElement_idx).OuterHTML & @LF)
+            Local $oSums = String ($oDElements.item($iElement_idx).OuterHTML & @LF)
+            Local $sMondayV= StringMid($oSums, 124,3)  ; Use stringinstr($oSums, "Monday",0,1,1,1) to get the 1st value  124= substring position start point, the next value is how many characters to extract after the starting point 3 characters for 0.1
+            Local $sMonday = StringMid($oSums, 72, 6)
+            Sleep( 500 )
+            ConsoleWrite($sMondayV &@LF)
+            If String ($sMonday) = "monday" Then
+                Global $oMonSum = $sMonday  ; sets global variable for  "Monday" string value
+;~              ConsoleWrite($oMonSum)
+            EndIf
+            If String ($sMondayV) = "0.4" Then ; creates a global variable for monday sum value
+                Global $oMonSumV = $sMondayV
+;~              ConsoleWrite($oMonSumV)
+            EndIf
+;~===================this is where I stuck! how do i associate the .04 value with the Monday span values, I want to have it read the span outerhtml:
+;~ <span class="aggregate_value" aggregate_display="0.4" aggregate_field="monday" aggregate_value="0.40" aggregate_type="SUM">0.4</span>  Identify it is monday and identify the value and  use logic if string $spanMonday has both "monday" and value*
+        Next
+    EndIf
+EndIf
+
+
+
+
+
+
+Func _IEquerySelectorAll(ByRef $oDoc, $sQuery, $iItemIndex = Default)
+    If Not IsObj($oDoc) Then
+        ConsoleWriteError("--> _IEquerySelectorAll Error: " & $_IEStatus_InvalidDataType & " Invalid DataType" & @LF)
+        Return SetError($_IEStatus_InvalidDataType, 1, 0)
+    ElseIf Not __IEIsObjType($oDoc, "browserdom") Then
+        ConsoleWriteError("--> _IEquerySelectorAll Error: " & $_IEStatus_InvalidObjectType & " Invalid ObjectType" & @LF)
+        Return SetError($_IEStatus_InvalidObjectType, 2, 0)
+    ElseIf Not IsNumber($iItemIndex) And $iItemIndex <> Default Then
+        ConsoleWriteError("--> _IEquerySelectorAll Error: " & $_IEStatus_InvalidValue & " Invalid Index" & @LF)
+        Return SetError($_IEStatus_InvalidValue, 3, 0)
+    ElseIf $iItemIndex = Default Or $iItemIndex >= 0 Then
+        Local $oTemp = Null
+        If __IEIsObjType($oDoc, "documentcontainer") Then
+            $oTemp = _IEDocGetObj($oDoc)
+            ConsoleWriteError("--> _IEDocGetObj Error: " & @error & " Ext: " & @extended & @LF)
+            If @error Then Return SetError(@error, @extended, 0)
+        Else
+            $oTemp = $oDoc
+        EndIf
+        Local $oClassColl = $oTemp.querySelectorAll($sQuery)
+        If @error Then
+            ConsoleWriteError("--> _IEquerySelectorAll Error: " & $_IESTATUS_GeneralError & " GeneralError1: " & @error & @LF)
+            Return SetError($_IESTATUS_GeneralError, 3, 0)
+        ElseIf (Not IsObj($oClassColl)) Or $oClassColl = Null Or $oClassColl.length = 0 Then
+            ConsoleWriteError("--> _IEquerySelectorAll Error: " & $_IEStatus_NoMatch & " NoMatch" & @LF)
+            Return SetError($_IEStatus_NoMatch, 0, 0) ; Could be caused by parameter 2, 3 or both
+        Else
+            If $iItemIndex = Default Then
+                Return SetError($_IEStatus_Success, $oClassColl.length, $oClassColl)
+            ElseIf $iItemIndex > $oClassColl.length Then
+                ConsoleWriteError("--> _IEquerySelectorAll Error: " & $_IEStatus_InvalidValue & " Invalid Value" & @LF)
+                Return SetError($_IEStatus_InvalidValue, $oClassColl.length, 0)
+            Else
+                $oItem = $oClassColl.Item($iItemIndex)
+                If @error Then
+                    ConsoleWriteError("--> _IEquerySelectorAll Error: " & $_IESTATUS_GeneralError & " GeneralError2: " & @error & @LF)
+                    Return SetError($_IESTATUS_GeneralError, 3, 0)
+                ElseIf (Not IsObj($oItem)) Or $oItem = Null Then
+                    ConsoleWriteError("--> _IEquerySelectorAll Error: " & $_IEStatus_NoMatch & " NoMatch Index: " & $iItemIndex & @LF)
+                    Return SetError($_IEStatus_NoMatch, 0, 0) ; Could be caused by parameter 2, 3 or both
+                Else
+                    Return SetError($_IEStatus_Success, 0, $oItem)
+                EndIf
+            EndIf
+        EndIf
+    Else
+        ConsoleWriteError("--> _IEquerySelectorAll Error: " & $_IEStatus_InvalidValue & " Invalid Value: " & $iItemIndex & @LF)
+        Return SetError($_IEStatus_InvalidValue, 3, 0)
+    EndIf
+EndFunc   ;==>_IEquerySelectorAll
+
+; User's COM error function.
+; After SetUp with ObjEvent("AutoIt.Error", ....) will be called if COM error occurs
+Func _User_ErrFunc($oError)
+    ; Do anything here.
+    ConsoleWrite(@ScriptFullPath & " (" & $oError.scriptline & ") : ==> COM Error intercepted !" & @CRLF & _
+            @TAB & "err.number is: " & @TAB & @TAB & "0x" & Hex($oError.number) & @CRLF & _
+            @TAB & "err.windescription:" & @TAB & $oError.windescription & @CRLF & _
+            @TAB & "err.description is: " & @TAB & $oError.description & @CRLF & _
+            @TAB & "err.source is: " & @TAB & @TAB & $oError.source & @CRLF & _
+            @TAB & "err.helpfile is: " & @TAB & $oError.helpfile & @CRLF & _
+            @TAB & "err.helpcontext is: " & @TAB & $oError.helpcontext & @CRLF & _
+            @TAB & "err.lastdllerror is: " & @TAB & $oError.lastdllerror & @CRLF & _
+            @TAB & "err.scriptline is: " & @TAB & $oError.scriptline & @CRLF & _
+            @TAB & "err.retcode is: " & @TAB & "0x" & Hex($oError.retcode) & @CRLF & @CRLF)
+EndFunc   ;==>_User_ErrFunc
